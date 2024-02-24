@@ -12,11 +12,6 @@ SCREEN_TITLE = "Platformer"
 CHARACTER_SCALING = 1
 TILE_SCALING = 0.5
 
-CHARACTER_SCALING = 1
-TILE_SCALING = 0.5
-
-
-
 # Movement speed of player, in pixels per frame
 PLAYER_MOVEMENT_SPEED = 5
 
