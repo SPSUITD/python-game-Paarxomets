@@ -3,6 +3,7 @@ bunner = pyfiglet.figlet_format("sky forse", font="banner3-d")
 print(bunner)
 
 import arcade
+import random
 
 # Constants
 SCREEN_WIDTH = 1000
@@ -17,11 +18,20 @@ PLAYER_MOVEMENT_SPEED = 5
 BULLET_SCALE = 1
 BULLET_SPEED = 10
 
-CLOUD_SPAWN_INTERVAL = 60
-
 BACKGROUND_SCROLL_SPEED = 50
 
+ENEMY_SPEED = 3
 
+class Enemy(arcade.Sprite):
+    def __init__(self, image, scale):
+        super().__init__(image, scale=scale)
+        self.center_x = random.randint(0, SCREEN_WIDTH)
+        self.center_y = SCREEN_HEIGHT + self.height // 2
+
+    def update(self):
+        self.center_y -= ENEMY_SPEED
+        if self.top < 0:
+            self.kill()
 
 
 class MyGame(arcade.Window):
@@ -49,6 +59,7 @@ class MyGame(arcade.Window):
         self.player_sprite_right = arcade.load_texture("img_second/player_right.png")
 
         self.bullets_list = arcade.SpriteList()
+        self.enemy_list = arcade.SpriteList()
 
 
     def setup(self):
@@ -77,7 +88,7 @@ class MyGame(arcade.Window):
         self.player_list.draw()
 
         self.bullets_list.draw()
-
+        self.enemy_list.draw()
     def on_key_press(self, key, modifiers):
         """Called whenever a key is pressed."""
         if key == arcade.key.LEFT or key == arcade.key.A:
@@ -118,6 +129,11 @@ class MyGame(arcade.Window):
         # перемещаем ее вниз на высоту экрана
         if self.background_y2 < -SCREEN_HEIGHT:
             self.background_y2 = SCREEN_HEIGHT
+        self.enemy_list.update()
+
+    def spawn_enemy(self, dt):
+        enemy = Enemy("img_second/sprite_enemy.png", CHARACTER_SCALING)
+        self.enemy_list.append(enemy)
 
 
     def fire_bullet(self):
@@ -128,9 +144,9 @@ class MyGame(arcade.Window):
         self.bullets_list.append(bullet)
 
 def main():
-    """Main function"""
     window = MyGame()
     window.setup()
+    arcade.schedule(window.spawn_enemy, 0.6)  # вызывает spawn_enemy каждую секунду
     arcade.run()
 
 
