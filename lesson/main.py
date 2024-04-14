@@ -1,6 +1,7 @@
 import pyfiglet
 bunner = pyfiglet.figlet_format("sky forse", font="banner3-d")
 print(bunner)
+
 import arcade
 
 # Constants
@@ -16,7 +17,12 @@ PLAYER_MOVEMENT_SPEED = 5
 BULLET_SCALE = 1
 BULLET_SPEED = 10
 
-BACKGROUND_SCROLL_SPEED = 25
+CLOUD_SPAWN_INTERVAL = 60
+
+BACKGROUND_SCROLL_SPEED = 50
+
+
+
 
 class MyGame(arcade.Window):
     """
@@ -35,6 +41,7 @@ class MyGame(arcade.Window):
         self.player_list = None
         self.player_sprite = None
 
+
         self.moving_left = False
         self.moving_right = False
 
@@ -42,6 +49,7 @@ class MyGame(arcade.Window):
         self.player_sprite_right = arcade.load_texture("img_second/player_right.png")
 
         self.bullets_list = arcade.SpriteList()
+
 
     def setup(self):
         """Set up the game here. Call this function to restart the game."""
@@ -56,19 +64,6 @@ class MyGame(arcade.Window):
         self.player_sprite.center_y = 50
         self.player_list.append(self.player_sprite)
 
-        # Put some crates on the ground
-        # This shows using a coordinate list to place sprites
-        coordinate_list = [[512, 200], [256, 300], [768, 250]]
-
-        for coordinate in coordinate_list:
-            # Add a crate on the ground
-            wall = arcade.Sprite(
-                "img_second/cloud.png", TILE_SCALING
-            )
-            wall.position = coordinate
-            self.wall_list.append(wall)
-    
-
 
     def on_draw(self):
         """Render the screen."""
@@ -79,7 +74,6 @@ class MyGame(arcade.Window):
         arcade.draw_texture_rectangle(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + self.background_y2,
                                         SCREEN_WIDTH, SCREEN_HEIGHT, self.background)
         # Draw our sprites
-        self.wall_list.draw()
         self.player_list.draw()
 
         self.bullets_list.draw()
@@ -125,8 +119,9 @@ class MyGame(arcade.Window):
         if self.background_y2 < -SCREEN_HEIGHT:
             self.background_y2 = SCREEN_HEIGHT
 
+
     def fire_bullet(self):
-        bullet = arcade.Sprite("img/bullet.png", BULLET_SCALE)
+        bullet = arcade.Sprite("img_second/bullet.png", BULLET_SCALE)
         bullet.center_x = self.player_sprite.center_x
         bullet.center_y = self.player_sprite.center_y + self.player_sprite.height // 2
         bullet.change_y = BULLET_SPEED
