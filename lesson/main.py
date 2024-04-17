@@ -5,6 +5,7 @@ print(bunner)
 import arcade
 import random
 
+
 # Constants
 SCREEN_WIDTH = 1000
 SCREEN_HEIGHT = 700
@@ -60,6 +61,9 @@ class MyGame(arcade.Window):
 
         self.bullets_list = arcade.SpriteList()
         self.enemy_list = arcade.SpriteList()
+        self.score = 0  # Initialize player's score
+        self.distance_traveled = 0  # Initialize distance traveled by the player
+        self.background_scroll_speed = BACKGROUND_SCROLL_SPEED  # Initialize background scroll speed
 
 
     def setup(self):
@@ -89,6 +93,12 @@ class MyGame(arcade.Window):
 
         self.bullets_list.draw()
         self.enemy_list.draw()
+        my_custom_color = (226, 177, 92)
+        arcade.draw_text(f"Score: {int(self.score)}", 10, SCREEN_HEIGHT - 20, my_custom_color, 14)
+        arcade.draw_text("Pause", SCREEN_WIDTH - 100, SCREEN_HEIGHT - 20, arcade.color.WHITE, 14)
+
+
+
     def on_key_press(self, key, modifiers):
         """Called whenever a key is pressed."""
         if key == arcade.key.LEFT or key == arcade.key.A:
@@ -117,8 +127,9 @@ class MyGame(arcade.Window):
 
         self.bullets_list.update()
 
-        self.background_y1 -= BACKGROUND_SCROLL_SPEED * delta_time
-        self.background_y2 -= BACKGROUND_SCROLL_SPEED * delta_time
+        self.background_y1 -= self.background_scroll_speed * delta_time
+        self.background_y2 -= self.background_scroll_speed * delta_time
+
 
         # Если первая копия фона уходит за верхний край экрана,
         # перемещаем ее вниз на высоту экрана
@@ -130,6 +141,23 @@ class MyGame(arcade.Window):
         if self.background_y2 < -SCREEN_HEIGHT:
             self.background_y2 = SCREEN_HEIGHT
         self.enemy_list.update()
+
+
+        self.score += self.background_scroll_speed * delta_time
+
+        # Update distance traveled by the player
+        self.distance_traveled += self.background_scroll_speed * delta_time
+
+        # Check if the player has traveled 1000 pixels
+        if self.distance_traveled >= 200:
+        # Increase background scroll speed
+            self.set_background_scroll_speed(self.background_scroll_speed + 5)  # You can adjust the increment as needed
+            # Reset distance traveled
+            self.distance_traveled = 0
+    
+    def set_background_scroll_speed(self, speed):
+        """Set the background scroll speed."""
+        self.background_scroll_speed = speed
 
     def spawn_enemy(self, dt):
         enemy = Enemy("img_second/sprite_enemy.png", CHARACTER_SCALING)
