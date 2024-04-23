@@ -1,182 +1,197 @@
-import pyfiglet
-bunner = pyfiglet.figlet_format("sky forse", font="banner3-d")
-print(bunner)
-
 import arcade
 import random
-
 
 # Constants
 SCREEN_WIDTH = 1000
 SCREEN_HEIGHT = 700
-SCREEN_TITLE = "Sky Forse"
+SCREEN_TITLE = "Sky Force"
 
 CHARACTER_SCALING = 0.8
-TILE_SCALING = 0.6
-# Movement speed of player, in pixels per frame
 PLAYER_MOVEMENT_SPEED = 5
-
 BULLET_SCALE = 1
 BULLET_SPEED = 10
-
 BACKGROUND_SCROLL_SPEED = 50
-
 ENEMY_SPEED = 3
+ENEMY_SHOOT_FREQUENCY = 0.8  # Частота стрельбы врага в секундах
+PLAYER_INVINCIBILITY_TIME = 0.2  # Время неуязвимости игрока после попадания вражеской пулей (в секундах)
 
 class Enemy(arcade.Sprite):
-    def __init__(self, image, scale):
+    def __init__(self, image, scale, game):
         super().__init__(image, scale=scale)
         self.center_x = random.randint(0, SCREEN_WIDTH)
         self.center_y = SCREEN_HEIGHT + self.height // 2
+        self.game = game
+        self.shoot_timer = 0
 
     def update(self):
         self.center_y -= ENEMY_SPEED
+        self.shoot_timer += 1 / 60  # Увеличиваем таймер стрельбы
+        if self.shoot_timer >= ENEMY_SHOOT_FREQUENCY:
+            self.shoot_timer = 0
+            bullet = arcade.Sprite("img_second/bullet_enemy.png", BULLET_SCALE)
+            bullet.center_x = self.center_x
+            bullet.center_y = self.center_y - self.height // 2
+            bullet.change_y = -BULLET_SPEED  # Стрельба вниз
+            self.game.enemy_bullets.append(bullet)  # Добавляем пулю в список пуль игры
+
         if self.top < 0:
             self.kill()
 
-
-class MyGame(arcade.Window):
-    """
-    Main application class.
-    """
-
-    def __init__(self):
-
-        # Call the parent class and set up the window
-        super().__init__(SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_TITLE)
-        self.background = arcade.load_texture('img_second/background.png')
-        self.background_y1 = 0  # начальное положение первой копии фона по оси Y
-        self.background_y2 = SCREEN_HEIGHT  # начальное положение второй копии фона по оси Y
-        # These are 'lists' that keep track of our sprites. Each sprite should
-        # go into a lists
-        self.player_list = None
-        self.player_sprite = None
-
-
+class Player(arcade.Sprite):
+    def __init__(self, image, scale):
+        super().__init__(image, scale=scale)
         self.moving_left = False
         self.moving_right = False
+        self.lives = 3  # Начальное количество жизней
+        self.invincible_time = 0
 
-        self.player_sprite_left = arcade.load_texture("img_second/player_left.png")
-        self.player_sprite_right = arcade.load_texture("img_second/player_right.png")
+    def update(self):
+        if self.invincible_time > 0:
+            self.invincible_time -= 1
+            if self.invincible_time % 10 == 0:  # Мигаем каждые 10 кадров
+                self.alpha = 0 if self.alpha == 255 else 255  # Меняем прозрачность спрайта
+        else:
+            self.alpha = 255  # Возвращаем нормальную прозрачность
+            if self.moving_left:
+                self.center_x -= PLAYER_MOVEMENT_SPEED
+            elif self.moving_right:
+                self.center_x += PLAYER_MOVEMENT_SPEED
 
-        self.bullets_list = arcade.SpriteList()
-        self.enemy_list = arcade.SpriteList()
-        self.score = 0  # Initialize player's score
-        self.distance_traveled = 0  # Initialize distance traveled by the player
-        self.background_scroll_speed = BACKGROUND_SCROLL_SPEED  # Initialize background scroll speed
+class GameOverView(arcade.View):
+    def __init__(self, game_view):
+        super().__init__()
+        self.game_view = game_view
 
-
-    def setup(self):
-        """Set up the game here. Call this function to restart the game."""
-        # Create the Sprite lists
-        self.player_list = arcade.SpriteList()
-        self.wall_list = arcade.SpriteList(use_spatial_hash=True)
-
-        # Set up the player, specifically placing it at these coordinates.
-        image_source = "img_second/sprite_img.png"
-        self.player_sprite = arcade.Sprite(image_source, CHARACTER_SCALING)
-        self.player_sprite.center_x = 500
-        self.player_sprite.center_y = 50
-        self.player_list.append(self.player_sprite)
-
+    def on_show(self):
+        arcade.set_background_color(arcade.color.BLACK)
 
     def on_draw(self):
-        """Render the screen."""
-
         arcade.start_render()
-        arcade.draw_texture_rectangle(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + self.background_y1,
-                                        SCREEN_WIDTH, SCREEN_HEIGHT, self.background)
-        arcade.draw_texture_rectangle(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + self.background_y2,
-                                        SCREEN_WIDTH, SCREEN_HEIGHT, self.background)
-        # Draw our sprites
-        self.player_list.draw()
-
-        self.bullets_list.draw()
-        self.enemy_list.draw()
-        my_custom_color = (226, 177, 92)
-        arcade.draw_text(f"Score: {int(self.score)}", 10, SCREEN_HEIGHT - 20, my_custom_color, 14)
-        arcade.draw_text("Pause", SCREEN_WIDTH - 100, SCREEN_HEIGHT - 20, arcade.color.WHITE, 14)
-
-
+        arcade.draw_text("Game Over", SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2 + 50,
+                         arcade.color.WHITE, font_size=50, anchor_x="center")
+        arcade.draw_text("Press R to restart", SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2,
+                         arcade.color.WHITE, font_size=20, anchor_x="center")
 
     def on_key_press(self, key, modifiers):
-        """Called whenever a key is pressed."""
+        if key == arcade.key.R:
+            self.game_view.reset()
+            self.game_view.setup()
+            self.window.show_view(self.game_view)
+
+class MyGame(arcade.View):
+    def __init__(self):
+        super().__init__()
+        self.background = arcade.load_texture('img_second/background.png')
+        self.background_y1 = 0
+        self.background_y2 = SCREEN_HEIGHT
+        self.player = Player("img_second/sprite_img.png", CHARACTER_SCALING)
+        self.player.center_x = 500
+        self.player.center_y = 50
+        self.player_start_texture = self.player.texture
+        self.bullets = arcade.SpriteList()
+        self.enemies = arcade.SpriteList()
+        self.enemy_bullets = arcade.SpriteList()  # Список пуль врагов
+        self.score = 0
+        self.distance_traveled = 0
+        self.lives_textures = [arcade.load_texture("img_second/heart.png") for _ in range(self.player.lives)]
+
+    def setup(self):
+        self.player_list = arcade.SpriteList()
+        self.player_list.append(self.player)
+
+    def on_show(self):
+        arcade.set_background_color(arcade.color.SKY_BLUE)
+
+    def on_draw(self):
+        arcade.start_render()
+        arcade.draw_texture_rectangle(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + self.background_y1,
+                                      SCREEN_WIDTH, SCREEN_HEIGHT, self.background)
+        arcade.draw_texture_rectangle(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + self.background_y2,
+                                      SCREEN_WIDTH, SCREEN_HEIGHT, self.background)
+        self.player_list.draw()
+        self.bullets.draw()
+        self.enemies.draw()
+        self.enemy_bullets.draw()  # Рисуем пули врагов
+        arcade.draw_text(f"Distance: {int(self.distance_traveled)}", 10, SCREEN_HEIGHT - 20, (226, 177, 92), 14)
+        for i, texture in enumerate(self.lives_textures):
+            arcade.draw_texture_rectangle(30 + i * 40, SCREEN_HEIGHT - 40, texture.width, texture.height, texture)
+
+    def on_key_press(self, key, modifiers):
         if key == arcade.key.LEFT or key == arcade.key.A:
-            self.moving_left = True
-            self.player_sprite.texture = self.player_sprite_left 
+            self.player.moving_left = True
+            self.player.texture = arcade.load_texture("img_second/player_left.png")
         elif key == arcade.key.RIGHT or key == arcade.key.D:
-            self.moving_right = True
-            self.player_sprite.texture = self.player_sprite_right
+            self.player.moving_right = True
+            self.player.texture = arcade.load_texture("img_second/player_right.png")
         elif key == arcade.key.SPACE:
             self.fire_bullet()
 
     def on_key_release(self, key, modifiers):
-        """Called whenever a key is released."""
         if key == arcade.key.LEFT or key == arcade.key.A:
-            self.moving_left = False
+            self.player.moving_left = False
         elif key == arcade.key.RIGHT or key == arcade.key.D:
-            self.moving_right = False
+            self.player.moving_right = False
+        if not self.player.moving_left and not self.player.moving_right:
+            self.player.texture = self.player_start_texture
 
-    
     def on_update(self, delta_time):
-        """Movement and game logic"""
-        if self.moving_left:
-            self.player_sprite.center_x -= 8
-        elif self.moving_right:
-            self.player_sprite.center_x += 8
-
-        self.bullets_list.update()
-
-        self.background_y1 -= self.background_scroll_speed * delta_time
-        self.background_y2 -= self.background_scroll_speed * delta_time
-
-
-        # Если первая копия фона уходит за верхний край экрана,
-        # перемещаем ее вниз на высоту экрана
+        self.player.update()
+        self.bullets.update()
+        self.enemies.update()
+        self.enemy_bullets.update()  # Обновляем пули врагов
+        self.background_y1 -= BACKGROUND_SCROLL_SPEED * delta_time
+        self.background_y2 -= BACKGROUND_SCROLL_SPEED * delta_time
         if self.background_y1 < -SCREEN_HEIGHT:
             self.background_y1 = SCREEN_HEIGHT
-
-        # Если вторая копия фона уходит за верхний край экрана,
-        # перемещаем ее вниз на высоту экрана
         if self.background_y2 < -SCREEN_HEIGHT:
             self.background_y2 = SCREEN_HEIGHT
-        self.enemy_list.update()
+        self.distance_traveled += BACKGROUND_SCROLL_SPEED * delta_time
+        self.score += 1
 
-
-        self.score += self.background_scroll_speed * delta_time
-
-        # Update distance traveled by the player
-        self.distance_traveled += self.background_scroll_speed * delta_time
-
-        # Check if the player has traveled 1000 pixels
-        if self.distance_traveled >= 200:
-        # Increase background scroll speed
-            self.set_background_scroll_speed(self.background_scroll_speed + 5)  # You can adjust the increment as needed
-            # Reset distance traveled
-            self.distance_traveled = 0
-    
-    def set_background_scroll_speed(self, speed):
-        """Set the background scroll speed."""
-        self.background_scroll_speed = speed
+        # Проверка столкновений пуль врагов с игроком
+        for bullet in self.enemy_bullets:
+            if arcade.check_for_collision(bullet, self.player):
+                bullet.kill()
+                self.player.lives -= 1
+                self.player.invincible_time = int(PLAYER_INVINCIBILITY_TIME * 60)  # 60 кадров в секунду
+                if self.player.lives == 0:
+                    game_over_view = GameOverView(self)
+                    self.window.show_view(game_over_view)
+                else:
+                    self.lives_textures.pop()
 
     def spawn_enemy(self, dt):
-        enemy = Enemy("img_second/sprite_enemy.png", CHARACTER_SCALING)
-        self.enemy_list.append(enemy)
-
+        enemy = Enemy("img_second/sprite_enemy.png", CHARACTER_SCALING, self)
+        self.enemies.append(enemy)
 
     def fire_bullet(self):
         bullet = arcade.Sprite("img_second/bullet.png", BULLET_SCALE)
-        bullet.center_x = self.player_sprite.center_x
-        bullet.center_y = self.player_sprite.center_y + self.player_sprite.height // 2
+        bullet.center_x = self.player.center_x
+        bullet.center_y = self.player.center_y + self.player.height // 2
         bullet.change_y = BULLET_SPEED
-        self.bullets_list.append(bullet)
+        self.bullets.append(bullet)
+        
+    def reset(self):
+        self.background_y1 = 0
+        self.background_y2 = SCREEN_HEIGHT
+        self.bullets = arcade.SpriteList()
+        self.enemies = arcade.SpriteList()
+        self.enemy_bullets = arcade.SpriteList()  # Список пуль врагов
+        self.score = 0
+        self.distance_traveled = 0
+        self.player.lives = 3
+        self.lives_textures = [arcade.load_texture("img_second/heart.png") for _ in range(self.player.lives)]
 
 def main():
-    window = MyGame()
-    window.setup()
-    arcade.schedule(window.spawn_enemy, 0.6)  # вызывает spawn_enemy каждую секунду
+    window = arcade.Window(SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_TITLE)
+    game_view = MyGame()
+    game_over_view = GameOverView(game_view)
+    game_view.setup()
+    game_view.window = window
+    game_over_view.window = window
+    arcade.schedule(game_view.spawn_enemy, 0.6)  # вызывает spawn_enemy каждую секунду
+    window.show_view(game_view)
     arcade.run()
-
 
 if __name__ == "__main__":
     main()
